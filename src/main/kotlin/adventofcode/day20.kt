@@ -3,9 +3,18 @@ package adventofcode
 import java.io.File
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.system.measureTimeMillis
 
 fun main(args: Array<String>) {
-    first20(File("./data/day20.txt").readText())
+    val time = measureTimeMillis {
+        first20(File("./data/day20.txt").readText())
+    }
+    println("For $time ms\n")
+
+    val time2 = measureTimeMillis {
+        first20Alternative(File("./data/day20.txt").readText())
+    }
+    println("For $time2 ms")
 }
 
 private val START = 0
@@ -69,8 +78,8 @@ private fun first20(data: String) {
 
     //How many rooms have a shortest path from your current location that pass through at least 1000 doors?
     var count = 0
-    nodesMap.forEach { key, v ->
-        v.forEach { key, v ->
+    nodesMap.forEach { _, v ->
+        v.forEach { _, v ->
             if (v.depth >= 1000) {
                 ++count
             }
@@ -108,6 +117,96 @@ private fun parsePath(field: Array<IntArray>, path: String, si: Int, sj: Int, sp
             }
             '(' -> {
                 val result = parsePath(field, path, i, j, p)
+                i = result.i
+                j = result.j
+                p = result.p
+            }
+            ')' -> {
+                return ParsePathResult(i, j, p)
+            }
+        }
+    }
+
+    return ParsePathResult(i, j, p)
+}
+
+private fun first20Alternative(data: String) {
+    val nodesMap = mutableMapOf<Int, MutableMap<Int, Node20>>()
+    val root = Node20()
+    nodesMap[0] = mutableMapOf(0 to root)
+
+    parsePathToMap(nodesMap, data, si = 0, sj = 0, sp = 1)
+
+    root.countDepth(0)
+
+    //Find max depth
+    var max = Int.MIN_VALUE
+    nodesMap.forEach { key, v ->
+        v.forEach { key, v ->
+            max = max(max, v.depth)
+        }
+    }
+    println(max)
+
+    //How many rooms have a shortest path from your current location that pass through at least 1000 doors?
+    var count = 0
+    nodesMap.forEach { _, v ->
+        v.forEach { _, v ->
+            if (v.depth >= 1000) {
+                ++count
+            }
+        }
+    }
+    println(count)
+}
+
+private fun parsePathToMap(
+        nodes: MutableMap<Int, MutableMap<Int, Node20>>,
+        path: String,
+        si: Int,
+        sj: Int,
+        sp: Int
+): ParsePathResult {
+    var i = si
+    var j = sj
+    var p = sp
+
+    while (path[p] != '$') {
+        when (path[p++]) {
+            'E' -> {
+                val oldNode = nodes.get(i)!!.get(j)!!
+                ++j
+                val newNode = nodes.get(i)!!.getOrPut(j) { Node20() }
+                oldNode.childs.add(newNode)
+                newNode.childs.add(oldNode)
+            }
+            'S' -> {
+                val oldNode = nodes.get(i)!!.get(j)!!
+                ++i
+                val newNode = nodes.getOrPut(i) { mutableMapOf() }.getOrPut(j) { Node20() }
+                oldNode.childs.add(newNode)
+                newNode.childs.add(oldNode)
+            }
+            'W' -> {
+                val oldNode = nodes.get(i)!!.get(j)!!
+                --j
+                val newNode = nodes.get(i)!!.getOrPut(j) { Node20() }
+                oldNode.childs.add(newNode)
+                newNode.childs.add(oldNode)
+            }
+            'N' -> {
+                val oldNode = nodes.get(i)!!.get(j)!!
+                --i
+                val newNode = nodes.getOrPut(i) { mutableMapOf() }.getOrPut(j) { Node20() }
+                oldNode.childs.add(newNode)
+                newNode.childs.add(oldNode)
+            }
+            '|' -> {
+                i = si
+                j = sj
+            }
+            '(' -> {
+                val result = parsePathToMap(nodes, path, i, j, p)
                 i = result.i
                 j = result.j
                 p = result.p
