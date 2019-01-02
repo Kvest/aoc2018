@@ -141,8 +141,8 @@ private fun first20Alternative(data: String) {
 
     //Find max depth
     var max = Int.MIN_VALUE
-    nodesMap.forEach { key, v ->
-        v.forEach { key, v ->
+    nodesMap.forEach { _, v ->
+        v.forEach { _, v ->
             max = max(max, v.depth)
         }
     }
