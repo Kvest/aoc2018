@@ -8,6 +8,18 @@ fun Array<IntArray>.forEachIndexed(action: (Int, Int, Int) -> Unit) {
     }
 }
 
+data class XY private constructor(val x: Int, val y: Int) {
+    companion object {
+        private val cash = mutableMapOf<Int, MutableMap<Int, XY>>()
+
+        //Avoid allocations of the huge amount of the XY items
+        operator fun invoke(i: Int, j: Int): XY {
+            val rowsCash = cash.getOrPut(i) { mutableMapOf() }
+            return rowsCash.getOrPut(j) { XY(i, j) }
+        }
+    }
+}
+
 val OPCODES = mapOf<String, Opcode>("addr" to ::addr, "addi" to ::addi, "mulr" to ::mulr, "muli" to ::muli,
         "banr" to ::banr, "bani" to ::bani, "borr" to ::borr, "bori" to ::bori,
         "setr" to ::setr, "seti" to ::seti, "gtir" to ::gtir, "gtri" to ::gtri,
