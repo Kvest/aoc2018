@@ -103,7 +103,7 @@ private class Field(data: List<String>) {
                 ++roundsCount
             }
 
-            print()
+            //print()
         }
 
         println("$roundsCount * " + units.sumBy { it.hp })
@@ -207,25 +207,26 @@ private class Field(data: List<String>) {
                 }
 
         var hasChanges = true
+        var value = 0
         while (hasChanges) {
             hasChanges = false
 
             iterateWithoutBorders { i, j ->
-                if (result[i][j] == Int.MAX_VALUE && freeCell(i, j)) {
-                    val newVal = minFrom(result[i - 1][j], result[i][j - 1], result[i][j + 1], result[i + 1][j])
+                if (result[i][j] == Int.MAX_VALUE && freeCell(i, j) &&
+                    (result[i - 1][j] == value || result[i][j - 1] == value || result[i][j + 1] == value || result[i + 1][j] == value)) {
 
-                    if (newVal != Int.MAX_VALUE) {
-                        result[i][j] = newVal + 1
-                        hasChanges = true
-                    }
+                    result[i][j] = value + 1
+                    hasChanges = true
                 }
             }
+
+            ++value
         }
 
         return result
     }
 
-    inline private fun iterateWithoutBorders(action: (Int, Int) -> Unit) {
+    private inline fun iterateWithoutBorders(action: (Int, Int) -> Unit) {
         (1 until (field.size - 1)).forEach { i ->
             (1 until (field[i].size - 1)).forEach { j ->
                 action(i, j)
@@ -253,13 +254,17 @@ private class Field(data: List<String>) {
             println()
         }
 
-        unitsField.forEachIndexed { i, row ->
-            row.forEachIndexed { j, u ->
+        unitsField.forEachIndexed { _, row ->
+            var newLine = false
+            row.forEachIndexed { _, u ->
                 u?.let {
                     print(it.toString())
+                    newLine = true
                 }
             }
-            println()
+            if (newLine) {
+                println()
+            }
         }
     }
 }
@@ -278,5 +283,3 @@ private class Creature(val type: CreatureType, var i: Int, var j: Int, var hp: I
 private enum class CreatureType {
     GOBLIN, ELF
 }
-
-private fun minFrom(vararg items: Int) = items.min()!!
