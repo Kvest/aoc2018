@@ -58,17 +58,35 @@ import java.io.File
 
 fun main(args: Array<String>) {
     println(first15(File("./data/day15_1.txt").readLines()))
+    println(second15(File("./data/day15_1.txt").readLines()))
 }
 
+private const val DEFAULT_ELF_ATTACK = 3
+
 fun first15(data: List<String>): Int {
-    val field = Field(data)
+    val field = Field(data, DEFAULT_ELF_ATTACK)
 
     return field.play()
 }
 
+fun second15(data: List<String>): Int {
+    var elfAttack = DEFAULT_ELF_ATTACK + 1
+    while (true) {
+        val field = Field(data, elfAttack)
+        var result = field.playWhileAlvesAlive()
+
+        if (result > 0) {
+            println("elfAttack=$elfAttack")
+            return result
+        } else {
+            ++elfAttack
+        }
+    }
+}
+
 private val ORDER = arrayOf(arrayOf(-1, 0), arrayOf(0, -1), arrayOf(0, 1), arrayOf(1, 0))
 
-private class Field(data: List<String>) {
+private class Field(data: List<String>, elfAttack: Int) {
     private val field: Array<BooleanArray>
     private val units = mutableListOf<Creature>()
     private val unitsField = Array<Array<Creature?>>(data.size) { Array(data[it].length) { null } }
@@ -84,7 +102,7 @@ private class Field(data: List<String>) {
                         unitsField[i][j] = unit
                     }
                     'E' -> {
-                        val unit = Creature(CreatureType.ELF, i, j)
+                        val unit = Creature(CreatureType.ELF, i, j, attack = elfAttack)
 
                         units.add(unit)
                         unitsField[i][j] = unit
@@ -111,9 +129,27 @@ private class Field(data: List<String>) {
         return units.sumBy { it.hp } * roundsCount
     }
 
-    private fun isNotFinished(): Boolean {
-        return (units.count { it.type == CreatureType.GOBLIN } > 0) && (units.count { it.type == CreatureType.ELF } > 0)
+    fun playWhileAlvesAlive(): Int {
+        var roundsCount = 0
+        val elvesCount = getCreaturesCount(CreatureType.ELF)
+
+        while (isNotFinished()) {
+            //check if any elf died
+            if (getCreaturesCount(CreatureType.ELF) < elvesCount) {
+                return -1
+            }
+
+            if (round()) {
+                ++roundsCount
+            }
+        }
+
+        return units.sumBy { it.hp } * roundsCount
     }
+
+    private fun isNotFinished() = getCreaturesCount(CreatureType.GOBLIN) > 0 && getCreaturesCount(CreatureType.ELF) > 0
+
+    private fun getCreaturesCount(type: CreatureType) = units.count { it.type == type }
 
     private fun round(): Boolean {
         val done = mutableSetOf<Creature>()
@@ -149,9 +185,9 @@ private class Field(data: List<String>) {
             val i = creature.i + it[0]
             val j = creature.j + it[1]
 
-            unitsField[i][j]?.let {
-                if (it.type == creature.enemyType && it.hp < minHP) {
-                    minHP = it.hp
+            unitsField[i][j]?.let { cr ->
+                if (cr.type == creature.enemyType && cr.hp < minHP) {
+                    minHP = cr.hp
                     minI = i
                     minJ = j
                 }
@@ -213,7 +249,7 @@ private class Field(data: List<String>) {
 
             iterateWithoutBorders { i, j ->
                 if (result[i][j] == Int.MAX_VALUE && freeCell(i, j) &&
-                    (result[i - 1][j] == value || result[i][j - 1] == value || result[i][j + 1] == value || result[i + 1][j] == value)) {
+                        (result[i - 1][j] == value || result[i][j - 1] == value || result[i][j + 1] == value || result[i + 1][j] == value)) {
 
                     result[i][j] = value + 1
                     hasChanges = true
@@ -269,7 +305,7 @@ private class Field(data: List<String>) {
     }
 }
 
-private class Creature(val type: CreatureType, var i: Int, var j: Int, var hp: Int = 200, val attack: Int = 3) {
+private class Creature(val type: CreatureType, var i: Int, var j: Int, val attack: Int = 3, var hp: Int = 200) {
     val isDead: Boolean
         get() = hp <= 0
     val enemyType: CreatureType
