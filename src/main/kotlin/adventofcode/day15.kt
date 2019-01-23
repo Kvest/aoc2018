@@ -172,7 +172,6 @@ private class Field(data: List<String>, elfAttack: Int) {
 
     private fun turn(creature: Creature) {
         move(creature)
-
         attack(creature)
     }
 
@@ -253,6 +252,8 @@ private class Field(data: List<String>, elfAttack: Int) {
 
                     result[i][j] = value + 1
                     hasChanges = true
+
+                    //TODO - method can be optimized here, the loop can be broken here if result[i][j] is a neighbor of the creature
                 }
             }
 

@@ -1,5 +1,7 @@
 package adventofcode
 
+import kotlin.math.abs
+
 fun Array<IntArray>.forEachIndexed(action: (Int, Int, Int) -> Unit) {
     this.forEachIndexed { i, row ->
         row.forEachIndexed { j, v ->
@@ -18,6 +20,21 @@ data class XY private constructor(val x: Int, val y: Int) {
             return rowsCash.getOrPut(j) { XY(i, j) }
         }
     }
+}
+
+data class XYZ private constructor(val x: Int, val y: Int, val z: Int) {
+    companion object {
+        private val cash = mutableMapOf<Int, MutableMap<Int, MutableMap<Int, XYZ>>>()
+
+        //Avoid allocations of the huge amount of the XY items
+        operator fun invoke(i: Int, j: Int, k: Int): XYZ {
+            val d1 = cash.getOrPut(i) { mutableMapOf() }
+            val d2 = d1.getOrPut(j) { mutableMapOf() }
+            return d2.getOrPut(k) { XYZ(i, j, k) }
+        }
+    }
+
+    fun manhattanDistance(other: XYZ) = abs(x - other.x) + abs(y - other.y) + abs(z - other.z)
 }
 
 val OPCODES = mapOf<String, Opcode>("addr" to ::addr, "addi" to ::addi, "mulr" to ::mulr, "muli" to ::muli,
