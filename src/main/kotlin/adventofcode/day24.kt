@@ -44,22 +44,53 @@ private val armyGroupReg = Regex("(\\d+) units each with (\\d+) hit points \\Q(\
 
 fun main(args: Array<String>) {
     first24(IMMUNE_SYSTEM, INFECTION)
+    second24(IMMUNE_SYSTEM, INFECTION)
 }
 
 private fun first24(immuneSystemData: Array<String>, infectionData: Array<String>) {
-    var groups = (immuneSystemData.map { ArmyGroup(TYPE_IMMUNE_SYSTEM, it) } + infectionData.map { ArmyGroup(TYPE_INFECTION, it) }).sortedByDescending { it.initiative }
+    var groups = solve24(
+            (immuneSystemData.map { ArmyGroup(TYPE_IMMUNE_SYSTEM, it) } + infectionData.map { ArmyGroup(TYPE_INFECTION, it) })
+    )
+
+    println(groups?.sumBy { it.count })
+}
+
+private fun second24(immuneSystemData: Array<String>, infectionData: Array<String>) {
+    var boost = 0
+    while (true) {
+
+        var groups = solve24(
+                (immuneSystemData.map { ArmyGroup(TYPE_IMMUNE_SYSTEM, it, boost) } + infectionData.map { ArmyGroup(TYPE_INFECTION, it) })
+        )
+
+        // println("$boost -> ${groups?.first().type}")
+
+        if (groups?.first()?.type == TYPE_IMMUNE_SYSTEM) {
+            println("at boost $boost")
+            println(groups.sumBy { it.count })
+
+            break
+        }
+
+        ++boost
+    }
+}
+
+private fun solve24(src: List<ArmyGroup>): List<ArmyGroup>? {
+    var groups = src.sortedByDescending { it.initiative }
+    var prev = groups.sumBy { it.count }
 
     while (groups.count { it.type == TYPE_IMMUNE_SYSTEM } > 0 && groups.count { it.type == TYPE_INFECTION } > 0) {
         //build attack map
         val selected = mutableSetOf<ArmyGroup>()
-        groups.sortedByDescending { it.effectivePower }.forEach{ attacker ->
+        groups.sortedByDescending { it.effectivePower }.forEach { attacker ->
             var mostDamage = -1
 
             groups.forEach { target ->
                 if (attacker.type != target.type && !selected.contains(target)) {
                     val dmg = target.countDamage(attacker)
 
-                    if (dmg > mostDamage || (dmg == mostDamage && target.effectivePower > attacker.target!!.effectivePower)) {
+                    if ((dmg >0 && dmg > mostDamage) || (dmg == mostDamage && target.effectivePower > attacker.target!!.effectivePower)) {
                         mostDamage = dmg
                         //remove old selected
                         attacker.target?.let { selected.remove(it) }
@@ -86,12 +117,20 @@ private fun first24(immuneSystemData: Array<String>, infectionData: Array<String
         //clean up
         groups = groups.filter { it.count > 0 }
         groups.forEach { it.target = null }
+
+        val newCount = groups.sumBy { it.count }
+        if (newCount == prev) {
+            //this is dead loop
+            return null
+        } else {
+            prev = newCount
+        }
     }
 
-    println(groups.fold(0) { acc, item -> acc + item.count })
+    return groups
 }
 
-private class ArmyGroup(val type: Int, src: String) {
+private class ArmyGroup(val type: Int, src: String, boost: Int = 0) {
     var count: Int
     val hitPoints: Int
     val damage: Int
@@ -107,7 +146,7 @@ private class ArmyGroup(val type: Int, src: String) {
         val (_count, _hitPoints, _props, _damage, _attackType, _initiative) = armyGroupReg.find(src)!!.destructured
         count = _count.toInt()
         hitPoints = _hitPoints.toInt()
-        damage = _damage.toInt()
+        damage = _damage.toInt() + boost
         attackType = _attackType
         initiative = _initiative.toInt()
 
