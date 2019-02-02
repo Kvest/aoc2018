@@ -3,11 +3,27 @@ package adventofcode
 import java.util.*
 
 fun main(args: Array<String>) {
+//    val a = Day22.solveA("depth: 11541\n" +
+//            "target: 14,778")
+//    println(a)
+//    val b = Day22.solveB("depth: 11541\n" +
+//            "target: 14,778")
+//    println(b)
+
     first22(14, 778, 11541)
-    second22(14, 778, 11541)
+    second22(14, 778, 11541) //1068  - yes?????
 
     //first22(10, 725, 8787)
     //second22(10, 725, 8787)
+
+//     first22(8, 701, 5913)
+//    second22(8, 701, 5913)
+
+//    first22(6, 770, 4845)
+//    second22(6, 770, 4845)
+//
+//    first22(14, 785, 4080)
+//    second22(14, 785, 4080)
 }
 
 private val X_COEFF = 16807
@@ -25,13 +41,15 @@ private val GEAR = 1
 private val NOTHING = 2
 
 private fun first22(targetX: Int, targetY: Int, depth: Int) {
-    val cave = buildCave(targetX, targetY, depth)
+    val cave = Cave(targetX, targetY, depth)
 
     var riskLevel = 0
-    cave.forEachIndexed { _, _, v ->
-        riskLevel += v
-
+    (0..targetX).forEach { x ->
+        (0..targetY).forEach { y ->
+            riskLevel += cave[x, y]
+        }
     }
+
     println(riskLevel)
 }
 
@@ -57,20 +75,14 @@ private fun second22(targetX: Int, targetY: Int, depth: Int) {
             XYZ(NARROW, NOTHING, WET) to NOTHING
     )
 
-    val w = (targetX + 1) * 100
-    val h = (targetY + 1) * 10
-    val cave = buildCave(w, h, depth)
-    cave[targetX][targetY] = ROCK
 
-    val dist = Array(w) {
-        Array(h) {
-            IntArray(3) { Int.MAX_VALUE }
-        }
-    }
+    val cave = Cave(targetX, targetY, depth)
 
-    val comparator = Comparator<XYZ> { first, second -> dist[first.x][first.y][first.z] - dist[second.x][second.y][second.z] }
+    val dist = Dists()
+
+    val comparator = Comparator<XYZ> { first, second -> dist[first.x, first.y, first.z] - dist[second.x, second.y, second.z] }
     val queue = PriorityQueue<XYZ>(comparator)
-    dist[0][0][TORCH] = 0
+    dist[0, 0, TORCH] = 0
     queue.add(XYZ(0, 0, TORCH))
 
     while (queue.isNotEmpty()) {
@@ -79,34 +91,34 @@ private fun second22(targetX: Int, targetY: Int, depth: Int) {
             break
         }
 
-        val curr = cave[next.x][next.y]
+        val curr = cave[next.x, next.y]
 
         //changed equipment
         val ch = XYZ(next.x, next.y, changeEq[XY(curr, next.z)]!!)
-        if (dist[next.x][next.y][next.z] + CHANGE_EQUIPMENT_TIME < dist[ch.x][ch.y][ch.z]) {
+        if (dist[next.x, next.y, next.z] + CHANGE_EQUIPMENT_TIME < dist[ch.x, ch.y, ch.z]) {
             queue.removeAll(ch)
 
-            dist[ch.x][ch.y][ch.z] = dist[next.x][next.y][next.z] + CHANGE_EQUIPMENT_TIME
+            dist[ch.x, ch.y, ch.z] = dist[next.x, next.y, next.z] + CHANGE_EQUIPMENT_TIME
             queue.add(ch)
         }
 
         //check neighbors
         neighbors(next.x, next.y) { x, y ->
             //if neighbor is the same type
-            if (cave[x][y] == curr && dist[next.x][next.y][next.z] + MOVE_TIME < dist[x][y][next.z]) {
+            if (cave[x, y] == curr && dist[next.x, next.y, next.z] + MOVE_TIME < dist[x, y, next.z]) {
                 val opposite = XYZ(x, y, next.z)
                 queue.removeAll(opposite)
 
-                dist[opposite.x][opposite.y][opposite.z] = dist[next.x][next.y][next.z] + MOVE_TIME
+                dist[opposite.x, opposite.y, opposite.z] = dist[next.x, next.y, next.z] + MOVE_TIME
                 queue.add(opposite)
             } else {
-                val newZ = transitions[XYZ(curr, next.z, cave[x][y])]
+                val newZ = transitions[XYZ(curr, next.z, cave[x, y])]
                 newZ?.let { newZ ->
-                    if (dist[next.x][next.y][next.z] + MOVE_TIME < dist[x][y][newZ]) {
+                    if (dist[next.x, next.y, next.z] + MOVE_TIME < dist[x, y, newZ]) {
                         val opposite = XYZ(x, y, newZ)
                         queue.removeAll(opposite)
 
-                        dist[opposite.x][opposite.y][opposite.z] = dist[next.x][next.y][next.z] + MOVE_TIME
+                        dist[opposite.x, opposite.y, opposite.z] = dist[next.x, next.y, next.z] + MOVE_TIME
                         queue.add(opposite)
                     }
                 }
@@ -114,7 +126,7 @@ private fun second22(targetX: Int, targetY: Int, depth: Int) {
         }
     }
 
-    println("finished ${dist[targetX][targetY][TORCH]}")
+    println("finished ${dist[targetX, targetY, TORCH]}")
 }
 
 private fun PriorityQueue<XYZ>.removeAll(xyz: XYZ) {
@@ -122,25 +134,32 @@ private fun PriorityQueue<XYZ>.removeAll(xyz: XYZ) {
     }
 }
 
-private fun buildCave(targetX: Int, targetY: Int, depth: Int): Array<IntArray> {
-    val el = Array(targetX + 1) { IntArray(targetY + 1) { 0 } }
-    el.forEachIndexed { x, y, _ ->
-        if ((y == 0 && x == 0) || (y == targetY && x == targetX)) {
-            el[x][y] = 0
-        } else if (y == 0) {
-            el[x][y] = (x * X_COEFF + depth) % MODE
-        } else if (x == 0) {
-            el[x][y] = (y * Y_COEFF + depth) % MODE
-        } else {
-            el[x][y] = (el[x - 1][y] * el[x][y - 1] + depth) % MODE
+private class Dists {
+    private val m = mutableMapOf<XYZ, Int>()
+
+    operator fun get(x: Int, y: Int, z: Int) = m.getOrPut(XYZ(x, y, z)) { Int.MAX_VALUE }
+    operator fun set(x: Int, y: Int, z: Int, value: Int) {
+        m[XYZ(x, y, z)] = value
+    }
+}
+
+private class Cave(targetX: Int, targetY: Int, val depth: Int) {
+    private val el = mutableMapOf<XY, Int>()
+
+    init {
+        el[XY(0, 0)] = 0
+        el[XY(targetX, targetY)] = 0
+    }
+
+    operator fun get(x: Int, y: Int) = geoIndex(x, y) % 3
+
+    private fun geoIndex(x: Int, y: Int): Int = el.getOrPut(XY(x, y)) {
+        when {
+            y == 0 -> (x * X_COEFF + depth) % MODE
+            x == 0 -> (y * Y_COEFF + depth) % MODE
+            else -> (geoIndex(x - 1, y) * geoIndex(x, y - 1) + depth) % MODE
         }
     }
-
-    el.forEachIndexed { x, y, _ ->
-        el[x][y] = el[x][y] % 3
-    }
-
-    return el
 }
 
 private inline fun neighbors(x: Int, y: Int, action: (Int, Int) -> Unit) {
