@@ -3,25 +3,26 @@ package adventofcode
 import java.util.*
 
 fun main(args: Array<String>) {
-//    val a = Day22.solveA("depth: 11541\n" +
-//            "target: 14,778")
-//    println(a)
-//    val b = Day22.solveB("depth: 11541\n" +
-//            "target: 14,778")
-//    println(b)
-
     first22(14, 778, 11541)
-    second22(14, 778, 11541) //1068  - yes?????
+    second22(14 , 778, 11541)
 
-    //first22(10, 725, 8787)
-    //second22(10, 725, 8787)
+//    8090
+//    finished in 992
+//    first22(10, 725, 8787)
+//    second22(10, 725, 8787)
 
+//    6256
+//    finished in 973
 //     first22(8, 701, 5913)
 //    second22(8, 701, 5913)
 
+//    5400
+//    finished in 1048
 //    first22(6, 770, 4845)
 //    second22(6, 770, 4845)
-//
+
+//    11843
+//    finished in 1078
 //    first22(14, 785, 4080)
 //    second22(14, 785, 4080)
 }
@@ -40,6 +41,27 @@ private val TORCH = 0
 private val GEAR = 1
 private val NOTHING = 2
 
+private val changeEq = mapOf(
+        XY(ROCK, TORCH) to GEAR,
+        XY(ROCK, GEAR) to TORCH,
+
+        XY(WET, GEAR) to NOTHING,
+        XY(WET, NOTHING) to GEAR,
+
+        XY(NARROW, TORCH) to NOTHING,
+        XY(NARROW, NOTHING) to TORCH
+)
+private val transitions = mapOf(
+        XYZ(ROCK, GEAR, WET) to GEAR,
+        XYZ(ROCK, TORCH, NARROW) to TORCH,
+
+        XYZ(WET, NOTHING, NARROW) to NOTHING,
+        XYZ(WET, GEAR, ROCK) to GEAR,
+
+        XYZ(NARROW, TORCH, ROCK) to TORCH,
+        XYZ(NARROW, NOTHING, WET) to NOTHING
+)
+
 private fun first22(targetX: Int, targetY: Int, depth: Int) {
     val cave = Cave(targetX, targetY, depth)
 
@@ -53,29 +75,57 @@ private fun first22(targetX: Int, targetY: Int, depth: Int) {
     println(riskLevel)
 }
 
+//alternative solution for part 2 which is in average 4 time faster
+private fun second22_alternative(targetX: Int, targetY: Int, depth: Int) {
+    val cave = Cave(targetX, targetY, depth)
+    val map = mutableMapOf<Int, MutableSet<XYZ>>()
+    val dist = Dists()
+    map.getOrPut(0) { mutableSetOf() }.add(XYZ(0, 0, TORCH))
+    dist[0, 0, TORCH] = 0
+
+    var t = 0
+    while (true) {
+        map.remove(t)?.forEach { xyz ->
+            if (xyz.x == targetX && xyz.y == targetY && xyz.z == TORCH) {
+                println("finished in $t")
+                return
+            }
+
+            val curr = cave[xyz.x, xyz.y]
+
+            //changed equipment
+            val ch = XYZ(xyz.x, xyz.y, changeEq[XY(curr, xyz.z)]!!)
+            if (t + CHANGE_EQUIPMENT_TIME < dist[ch.x, ch.y, ch.z]) {
+                dist[ch.x, ch.y, ch.z] = t + CHANGE_EQUIPMENT_TIME
+                map.getOrPut(t + CHANGE_EQUIPMENT_TIME) { mutableSetOf() }.add(ch)
+            }
+
+            //move
+            val moveSet = map.getOrPut(t + MOVE_TIME) { mutableSetOf() }
+            neighbors(xyz.x, xyz.y) { x, y ->
+                //if neighbor is the same type
+                if (cave[x, y] == curr) {
+                    if (t + MOVE_TIME < dist[x, y, xyz.z]) {
+                        dist[x, y, xyz.z] = t + MOVE_TIME
+                        moveSet.add(XYZ(x, y, xyz.z))
+                    }
+                } else {
+                    val newZ = transitions[XYZ(curr, xyz.z, cave[x, y])]
+                    newZ?.let { newZ ->
+                        if (t + MOVE_TIME < dist[x, y, newZ]) {
+                            dist[x, y, newZ] = t + MOVE_TIME
+                            moveSet.add(XYZ(x, y, newZ))
+                        }
+                    }
+                }
+            }
+        }
+
+        ++t
+    }
+}
+
 private fun second22(targetX: Int, targetY: Int, depth: Int) {
-    val changeEq = mapOf(
-            XY(ROCK, TORCH) to GEAR,
-            XY(ROCK, GEAR) to TORCH,
-
-            XY(WET, GEAR) to NOTHING,
-            XY(WET, NOTHING) to GEAR,
-
-            XY(NARROW, TORCH) to NOTHING,
-            XY(NARROW, NOTHING) to TORCH
-    )
-    val transitions = mapOf(
-            XYZ(ROCK, GEAR, WET) to GEAR,
-            XYZ(ROCK, TORCH, NARROW) to TORCH,
-
-            XYZ(WET, NOTHING, NARROW) to NOTHING,
-            XYZ(WET, GEAR, ROCK) to GEAR,
-
-            XYZ(NARROW, TORCH, ROCK) to TORCH,
-            XYZ(NARROW, NOTHING, WET) to NOTHING
-    )
-
-
     val cave = Cave(targetX, targetY, depth)
 
     val dist = Dists()
@@ -105,12 +155,14 @@ private fun second22(targetX: Int, targetY: Int, depth: Int) {
         //check neighbors
         neighbors(next.x, next.y) { x, y ->
             //if neighbor is the same type
-            if (cave[x, y] == curr && dist[next.x, next.y, next.z] + MOVE_TIME < dist[x, y, next.z]) {
-                val opposite = XYZ(x, y, next.z)
-                queue.removeAll(opposite)
+            if (cave[x, y] == curr) {
+                if (dist[next.x, next.y, next.z] + MOVE_TIME < dist[x, y, next.z]) {
+                    val opposite = XYZ(x, y, next.z)
+                    queue.removeAll(opposite)
 
-                dist[opposite.x, opposite.y, opposite.z] = dist[next.x, next.y, next.z] + MOVE_TIME
-                queue.add(opposite)
+                    dist[opposite.x, opposite.y, opposite.z] = dist[next.x, next.y, next.z] + MOVE_TIME
+                    queue.add(opposite)
+                }
             } else {
                 val newZ = transitions[XYZ(curr, next.z, cave[x, y])]
                 newZ?.let { newZ ->
@@ -126,7 +178,7 @@ private fun second22(targetX: Int, targetY: Int, depth: Int) {
         }
     }
 
-    println("finished ${dist[targetX, targetY, TORCH]}")
+    println("finished in ${dist[targetX, targetY, TORCH]}")
 }
 
 private fun PriorityQueue<XYZ>.removeAll(xyz: XYZ) {
@@ -143,21 +195,20 @@ private class Dists {
     }
 }
 
-private class Cave(targetX: Int, targetY: Int, val depth: Int) {
+private class Cave(val targetX: Int, val targetY: Int, val depth: Int) {
     private val el = mutableMapOf<XY, Int>()
 
-    init {
-        el[XY(0, 0)] = 0
-        el[XY(targetX, targetY)] = 0
-    }
+    operator fun get(x: Int, y: Int) = erosionLevel(x, y) % 3
 
-    operator fun get(x: Int, y: Int) = geoIndex(x, y) % 3
+    private fun erosionLevel(x: Int, y: Int) = el.getOrPut(XY(x, y)) { (geoIndex(x, y) + depth) % MODE }
 
-    private fun geoIndex(x: Int, y: Int): Int = el.getOrPut(XY(x, y)) {
-        when {
-            y == 0 -> (x * X_COEFF + depth) % MODE
-            x == 0 -> (y * Y_COEFF + depth) % MODE
-            else -> (geoIndex(x - 1, y) * geoIndex(x, y - 1) + depth) % MODE
+    private fun geoIndex(x: Int, y: Int): Int {
+        return when {
+            x == 0 && y == 0 -> 0
+            x == targetX && y == targetY -> 0
+            y == 0 -> x * X_COEFF
+            x == 0 -> y * Y_COEFF
+            else -> erosionLevel(x - 1, y) * erosionLevel(x, y - 1)
         }
     }
 }
